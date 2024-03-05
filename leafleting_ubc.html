@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Leaflet Exercise</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.4.0/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+</head>
+<body>
+
+    <div id="mapid" style="width: 600px; height: 400px;"></div>
+    <div id="controls" style="margin: 15px;">
+        <input type="text" id="walkingTime" placeholder="Walking Time (minutes)" />
+        <button id="filterPointsButton">Filter Points</button>
+    </div>
+
+    <script>
+        // set the fixed point at the bus stop (UBC bus loop)
+        var fixedPoint = L.latLng(49.267719754274964, -123.24757020387274);
+
+        var map = L.map('mapid', {
+            center: fixedPoint,
+            zoom: 15
+        });
+
+        var topoTiles = L.tileLayer(
+            'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+            {
+                maxzoom: 17,
+                attribution: 'Map data: &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+            }
+        ).addTo(map);
+
+        var entranceMakerOptions = {
+            radius: 4,
+            fillColor: "#21edd9",
+            color: "#0a0a0a",
+            weight: 1,
+            opacity: 0.5,
+            fillOpacity: 0.8
+        };
+
+        var lastLayerAdded = {};
+
+        function addEntrances() {
+            if (map.hasLayer(lastLayerAdded)) {
+                map.removeLayer(lastLayerAdded);
+            }
+            lastLayerAdded = L.geoJSON(entranceGeoJSONdata, {
+                pointToLayer: function (feature, latlng) {
+                    return L.circleMarker(
+                        latlng,
+                        entranceMakerOptions
+                    );
+                },
+                filter: entrancesToFilter
+            });
+            lastLayerAdded.addTo(map);
+        }
+        // filter function -> 
+        function entrancesToFilter(feature, layer) {
+            var walkingTime = parseInt(document.getElementById("walkingTime").value, 10) || 0;
+            if (walkingTime <= 0) {
+                // If walking time is not valid, show all points
+                return true;
+            }
+
+            // Calculate the distance based on walking time 
+            var distance = walkingTime * 60; // Assuming average walking speed is 1.0 m/s as this code measures the direct distance between entrance and bus stop
+
+            if (feature.geometry.type === 'Point' && feature.geometry.coordinates) {
+                var pointLatLng = L.latLng(feature.geometry.coordinates[1], feature.geometry.coordinates[0]);
+                var distanceToPoint = fixedPoint.distanceTo(pointLatLng);
+
+                return distanceToPoint <= distance;
+            }
+
+            return false;
+        }
+
+        $.getJSON("https://raw.githubusercontent.com/UBCGeodata/ubc-geospatial-opendata/master/ubcv/locations/geojson/ubcv_building_entraces.geojson",
+            function (data) {
+                entranceGeoJSONdata = data;
+                document.getElementById("filterPointsButton").addEventListener("click", addEntrances);
+            }
+        );
+    </script>
+
+</body>
+</html>
